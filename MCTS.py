@@ -97,10 +97,10 @@ def simulate(board, jogador_atual):
     return 0
 
 def algoritmo_mcts(board, jogador_atual, iteracoes, root=None):
-    # --- BLOQUEIO E VITÓRIA IMEDIATA ---
+
     legal = get_legal_moves(board, jogador_atual)
     
-    #ver se eu ganho se jogar ali
+    # verificar vitória imediata
     for m in legal:
         info = apply_move(board, jogador_atual, m)
         if gl.check_victory(board, jogador_atual):
@@ -108,13 +108,21 @@ def algoritmo_mcts(board, jogador_atual, iteracoes, root=None):
             return m, None
         undo_move(board, info)
     
-    #ver se o oponente ganha se jogar ali
+    # verificar bloqueio imediato
+    safe_blocking_move = None
     for m in legal:
+        # vê se o oponente ganharia se jogasse aqui
         info_op = apply_move(board, 3 - jogador_atual, m)
         if gl.check_victory(board, 3 - jogador_atual):
             undo_move(board, info_op)
-            return m, None # BLOQUEI
-        undo_move(board, info_op)
+            
+            # temos de bloquear. Mas este bloqueio é seguro?
+            if not leads_to_opponent_win(board, m, jogador_atual):
+                return m, None # Bloqueio seguro!
+            else:
+                safe_blocking_move = m # Bloqueio desesperado (suicídio de qualquer forma)
+        else:
+            undo_move(board, info_op)
 
 
     if root is None or root.board != board:
@@ -166,3 +174,26 @@ def atualizar_root(root, move):
             child.parent = None
             return child
     return None
+
+
+def leads_to_opponent_win(board, move, jogador_ia):
+    """Verifica se uma jogada da IA resulta numa vitória imediata do oponente"""
+    oponente = 3 - jogador_ia
+    # Fazemos a jogada
+    info = apply_move(board, jogador_ia, move)
+    # Verificamos se o oponente ficou com 4-em-linha (comum no POP)
+    if gl.check_victory(board, oponente):
+        undo_move(board, info)
+        return True
+    
+    # Verificamos se o oponente agora consegue ganhar em qualquer coluna
+    can_win = False
+    for m_op in get_legal_moves(board, oponente):
+        info_op = apply_move(board, oponente, m_op)
+        if gl.check_victory(board, oponente):
+            can_win = True
+        undo_move(board, info_op)
+        if can_win: break
+        
+    undo_move(board, info)
+    return can_win
