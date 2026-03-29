@@ -3,6 +3,7 @@ import MCTS
 from game_logic import *
 import time
 
+
 pygame.init()
 
 #defenir as dimensões da tela e tamanho das células do tabuleiro
@@ -229,9 +230,13 @@ def show_end_popup(winner):
 #loop principal do jogo
 modo_jogo = show_menu()
 running = True
+
 current_player = 1
 ia_turn = False
+mcts_root = None
+
 while running:
+
 
     for event in pygame.event.get():
         
@@ -248,6 +253,7 @@ while running:
             if y < top_area:
                 if not col_isFull(matrix, col):
                     drop(matrix, current_player, col)
+                    mcts_root = MCTS.atualizar_root(mcts_root, ("drop", col))
                     screen.fill(black)
                     draw_board(matrix)
                     pygame.display.update()
@@ -266,6 +272,7 @@ while running:
             elif y > height - bottom_area:
                 if check_pop(matrix, current_player, col):
                     pop(matrix, current_player, col)
+                    mcts_root = MCTS.atualizar_root(mcts_root, ("pop", col))
                     screen.fill(black)
                     draw_board(matrix)
                     pygame.display.update()
@@ -296,7 +303,7 @@ while running:
             
     if modo_jogo == 2 and current_player == 2 and running and ia_turn  :
 
-        movimento = MCTS.algoritmo_mcts(matrix, current_player, 5000)
+        movimento, mcts_root = MCTS.algoritmo_mcts(matrix, current_player, 3000, mcts_root)
 
         if movimento[0] == "drop":
             drop(matrix, current_player, movimento[1])
@@ -319,12 +326,14 @@ while running:
             show_end_popup(0)  # Tie
             running = False
         elif boolean_victory_1:
+            pygame.time.delay(2000)
             show_end_popup(3)
-            time.delay(2000)
+            pygame.time.delay(2000)
             running = False
         elif boolean_victory_2:
+            pygame.time.delay(2000)
             show_end_popup(4)
-            pygame.time.delay(300)
+            pygame.time.delay(2000)
             running = False
 
         current_player = 1
