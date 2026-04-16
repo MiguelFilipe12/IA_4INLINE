@@ -71,7 +71,6 @@ def pop (board, player, col):
     for r in range (ROWS - 1, 0, -1):
         board[r][col] = board [r-1][col]
 
-
     board[0][col] = 0            
 
 def check_pop(board, player, col):
@@ -146,6 +145,3 @@ def get_row_before_drop(board, col):
         if board[r][col] == 0:
             return r
     return None
-
-
-################################# MAIN ###################################
