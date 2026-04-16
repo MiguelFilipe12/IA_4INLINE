@@ -68,6 +68,10 @@ def simulate(board, jogador_atual):
         moves = get_legal_moves(temp_board, curr)
         if not moves: break
         
+        pop_moves = [m for m in moves if m[0] == "pop"]
+        drop_moves = [m for m in moves if m[0] == "drop"]
+
+
         # Heurística rápida: ganhar ou bloquear
         best_move = None
         for m in moves:
@@ -86,7 +90,13 @@ def simulate(board, jogador_atual):
             else:
                 undo_move(temp_board, info_op)
 
-        move = best_move if best_move else random.choice(moves)
+        if best_move:
+            move = best_move
+        elif pop_moves and random.random() < 0.4:
+            move = random.choice(pop_moves)
+        else: 
+            move = random.choice(drop_moves if drop_moves else moves)
+
         
         if move[0] == "drop": gl.drop(temp_board, curr, move[1])
         else: gl.pop(temp_board, curr, move[1])
