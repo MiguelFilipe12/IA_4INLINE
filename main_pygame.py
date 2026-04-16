@@ -1,8 +1,13 @@
 import pygame
 import MCTS
 from game_logic import *
-import time
 
+dataset = []
+def reset_game():
+    return iniciar_matrix(), 1, None
+
+#TEMOS DE IMPLEMENTAR AS 3 REGRAS Q ESTAO NO GUIA, N TEMOS NENHUMA
+#HUMAN VS AI TEM DE TER 2 IAs? PERGUNTAR
 
 pygame.init()
 
@@ -167,15 +172,126 @@ def show_menu():
                     if text_rect.collidepoint(x, y):
                         if i == 0:
                             modo_selecionado = 1  # Human vs Human
-                            menu_running = False
                         elif i == 1:
                             modo_selecionado = 2  # AI vs Human
-                            menu_running = False
                         elif i == 2:
-                            #modo_selecionado = 3   AI vs AI
-                            pass
+                            modo_selecionado = 3  # AI vs AI
+                        menu_running = False
     
     return modo_selecionado
+
+def show_ai_vs_ai_menu():
+    """Menu to choose which AI goes first in AI vs AI mode"""
+    menu_running = True
+    choice = None
+    
+    # Fontes para o menu
+    font_title = pygame.font.Font(None, 56)
+    font_options = pygame.font.Font(None, 42)
+    font_hover = pygame.font.Font(None, 46)
+    font_subtitle = pygame.font.Font(None, 32)
+    
+    # Cores do menu
+    title_color = (255, 255, 255)
+    option_color = (200, 200, 200)
+    option_hover_color = (255, 130, 60)
+    
+    # Opções
+    opcoes = ["Monte Carlo (MCTS)", "Minimax", "Random"]
+    opcao_hover = -1
+    
+    clock = pygame.time.Clock()
+    
+    while menu_running:
+        dt = clock.tick(60)
+        
+        screen.fill(background)
+        
+        # Criar efeito gradiente de fundo
+        for i in range(height):
+            gradient_color = (
+                background[0] + int(i * (10 - background[0]) / height),
+                background[1] + int(i * (20 - background[1]) / height),
+                background[2] + int(i * (30 - background[2]) / height)
+            )
+            pygame.draw.line(screen, gradient_color, (0, i), (width, i))
+        
+        # Desenhar título
+        titulo = font_title.render("AI vs AI", True, title_color)
+        titulo_sombra = font_title.render("AI vs AI", True, (50, 50, 50))
+        titulo_rect = titulo.get_rect(center=(width//2, height//4 - 20))
+        titulo_sombra_rect = titulo_sombra.get_rect(center=(width//2 + 3, height//4 - 17))
+        screen.blit(titulo_sombra, titulo_sombra_rect)
+        screen.blit(titulo, titulo_rect)
+        
+        # Subtítulo
+        subtitulo = font_subtitle.render("Choose who goes first:", True, (180, 180, 180))
+        subtitulo_rect = subtitulo.get_rect(center=(width//2, height//4 + 30))
+        screen.blit(subtitulo, subtitulo_rect)
+        
+        # Linha decorativa
+        pygame.draw.line(screen, title_color, (width//2 - 200, height//4 + 55), (width//2 + 200, height//4 + 55), 2)
+        
+        # Desenhar opções
+        for i, opcao in enumerate(opcoes):
+            y_pos = height//2 + i * 70 - 40
+            
+            # Verificar hover
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            text_width = font_options.size(opcao)[0]
+            text_height = font_options.size(opcao)[1]
+            text_rect = pygame.Rect(width//2 - text_width//2 - 20, y_pos - 20, text_width + 40, text_height + 40)
+            
+            if text_rect.collidepoint(mouse_x, mouse_y):
+                opcao_hover = i
+                texto = font_hover.render(opcao, True, option_hover_color)
+            else:
+                texto = font_options.render(opcao, True, option_color)
+            
+            texto_rect = texto.get_rect(center=(width//2, y_pos))
+            screen.blit(texto, texto_rect)
+        
+        '''
+        # Desenhar informações das AIs
+        info_y = height - 100
+        mcts_info = font_subtitle.render("MCTS: Monte Carlo Tree Search", True, player1)
+        minimax_info = font_subtitle.render("Minimax: Alpha-Beta Pruning", True, player2)
+        
+        mcts_rect = mcts_info.get_rect(center=(width//2 - 150, info_y))
+        minimax_rect = minimax_info.get_rect(center=(width//2 + 150, info_y))
+        
+        screen.blit(mcts_info, mcts_rect)
+        screen.blit(minimax_info, minimax_rect)
+        
+        # Desenhar círculos indicadores
+        pygame.draw.circle(screen, player1, (width//2 - 250, info_y + 15), 15)
+        pygame.draw.circle(screen, player2, (width//2 + 50, info_y + 15), 15)
+        '''
+        pygame.display.update()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                # Verificar qual opção foi clicada
+                for i, opcao in enumerate(opcoes):
+                    y_pos = height//2 + i * 70 - 40
+                    text_width = font_options.size(opcao)[0]
+                    text_height = font_options.size(opcao)[1]
+                    text_rect = pygame.Rect(width//2 - text_width//2 - 20, y_pos - 20, text_width + 40, text_height + 40)
+                    
+                    if text_rect.collidepoint(x, y):
+                        if i == 0:
+                            choice = "mcts_first"
+                        elif i == 1:
+                            choice = "minimax_first"
+                        elif i == 2:
+                            choice = "random"
+                        menu_running = False
+    
+    return choice
 
 def show_end_popup(winner):
     """Display end game popup with winner information"""
@@ -206,14 +322,14 @@ def show_end_popup(winner):
         winner_text = "PLAYER 2 WINS!"
         winner_color = player2
     elif winner == 3:
-        winner_text = "AI 1 WINS!"
-        winner_color = player1
+        winner_text = "MCTS WINS!"
+        winner_color = (255, 255, 255)
     elif winner == 4:
-        winner_text = "AI 2 WINS!"
-        winner_color = player2
+        winner_text = "MINIMAX WINS!"
+        winner_color = (255, 255, 255)
     else:
         winner_text = "IT'S A TIE!"
-        winner_color = (255, 215, 0)
+        winner_color = (255, 255, 255)
     
     # Render winner text
     text = font_title.render(winner_text, True, winner_color)
@@ -229,200 +345,226 @@ def show_end_popup(winner):
 
 #loop principal do jogo
 modo_jogo = show_menu()
-running = True
 
+# AI vs AI configuration
+ai_vs_ai_choice = None
+if modo_jogo == 3:
+    #ai_vs_ai_choice = show_ai_vs_ai_menu()
+    # Reset the board for AI vs AI mode
+    matrix = iniciar_matrix()
+
+running = True
 current_player = 1
-ia_turn = False
 mcts_root = None
 
-while running:
+#Teste de melhoria
+reuse_ok = 0
+reuse_fail = 0
 
+#cenas para dataset
+turn = 0
+jogos = 0
+MAX = 2
+
+while running:
 
     for event in pygame.event.get():
         
         if event.type == pygame.QUIT:
             running = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN and not (modo_jogo == 2 and current_player == 2):# and not (modo_jogo == 3 and current_player == 1):
+        if event.type == pygame.MOUSEBUTTONDOWN and not (modo_jogo == 2 and current_player == 2) and not (modo_jogo == 3):
             
             x = event.pos[0]
             y = event.pos[1]
 
             col = x // cell_size
-
+            jogada_feita = False
             if y < top_area:
                 if not col_isFull(matrix, col):
                     drop(matrix, current_player, col)
-                    mcts_root = MCTS.atualizar_root(mcts_root, ("drop", col))
-                    screen.fill(black)
-                    draw_board(matrix)
-                    pygame.display.update()
-
-                    if check_victory(matrix, current_player):
-                        show_end_popup(current_player)
-                        running = False    
-
-                    if current_player == 1:
-                        current_player = 2
-                        ia_turn = True
-                    else:
-                        current_player = 1
-
+                    jogada_feita = True
+                    
 
             elif y > height - bottom_area:
                 if check_pop(matrix, current_player, col):
                     pop(matrix, current_player, col)
-                    mcts_root = MCTS.atualizar_root(mcts_root, ("pop", col))
-                    screen.fill(black)
-                    draw_board(matrix)
-                    pygame.display.update()
+                    jogada_feita = True
 
+            if jogada_feita:
+                if y < top_area:
+                    novo_root = MCTS.atualizar_root(mcts_root, ("drop", col))
 
-
-                    boolean_victory_1 = check_victory(matrix, 1)
-                    boolean_victory_2 = check_victory(matrix, 2)
-                
-                    if boolean_victory_1 and boolean_victory_2:
-                        print("Empate!")
-                        running = False
-
-                    elif boolean_victory_1:
-                        print("Jogador 1 ganhou!")
-                        running = False
-                    elif boolean_victory_2:
-                        print("Jogador 2 ganhou!")
-                        running = False
-
-                        
-                    if current_player == 1:
-                         
-                        current_player = 2
-                        ia_turn = True
+                    if novo_root is None:
+                        reuse_fail += 1
                     else:
-                        current_player = 1
+                        reuse_ok += 1
+
+                    mcts_root = novo_root
+
+
+                else:
+                    novo_root = MCTS.atualizar_root(mcts_root, ("pop", col))
+
+                    if novo_root is None:
+                        reuse_fail += 1
+                    else:
+                        reuse_ok += 1
+                    mcts_root = novo_root
+
+      
+                screen.fill(black)
+                draw_board(matrix)
+                pygame.display.update()
+
+
+                venceu_atual = check_victory(matrix, current_player)
+                venceu_oponente = check_victory(matrix, 3 - current_player)
+                
+                if venceu_atual and venceu_oponente:
+                    show_end_popup(current_player)
+                    running = False
+
+
+                elif venceu_atual:
+                    show_end_popup(current_player)
+                    running = False
+
+                elif venceu_oponente:
+                    show_end_popup(3 - current_player)
+                    running = False
+
+                else:
+                    current_player = 3 - current_player
+        
+    # AI moves
+    if running:
+        if modo_jogo == 2 and current_player == 2:
+            movimento, mcts_root = MCTS.algoritmo_mcts(matrix, current_player, 5000, mcts_root)
+            if movimento[0] == "drop":
+                drop(matrix, current_player, movimento[1])
+            else:
+                pop(matrix, current_player, movimento[1])
+
+            novo_root = MCTS.atualizar_root(mcts_root, movimento)
+
+            if novo_root is None:
+                reuse_fail += 1
+            else:
+                reuse_ok += 1
             
-    if modo_jogo == 2 and current_player == 2 and running and ia_turn  :
 
-        movimento, mcts_root = MCTS.algoritmo_mcts(matrix, current_player, 3000, mcts_root)
 
-        if movimento[0] == "drop":
-            drop(matrix, current_player, movimento[1])
+
             screen.fill(black)
             draw_board(matrix)
+            pygame.display.update()
 
-        else:
-            pop(matrix, current_player, movimento[1])
+            venceu_atual = check_victory(matrix, current_player)
+            venceu_oponente = check_victory(matrix, 3 - current_player)
+                
+            if venceu_atual and venceu_oponente:
+                show_end_popup(current_player)
+                running = False
+
+
+            elif venceu_atual:
+                show_end_popup(current_player)
+                running = False
+
+            elif venceu_oponente:
+                show_end_popup(3 - current_player)
+                running = False
+
+            else:
+                current_player = 3 - current_player
+
+        elif modo_jogo == 3:
+
+            #pygame.time.delay(300)
+
             screen.fill(black)
             draw_board(matrix)
+            pygame.display.update()
+
+            movimento, _ = MCTS.algoritmo_mcts (matrix, current_player, 5000)
+            if turn > 3:
+                estado = [row[:] for row in matrix]
+                dataset.append ((estado, movimento))
+
+            #Aplicar jogadas
+
+            if movimento[0] == "drop":
+                drop (matrix, current_player, movimento[1])
+                turn += 1
+
+            else:
+                pop(matrix, current_player, movimento[1])
+                turn += 1
+
+            screen.fill(black)
+            draw_board(matrix)
+            pygame.display.update()
+
+            venceu_atual = check_victory(matrix, current_player)
+            venceu_oponente = check_victory(matrix, 3 - current_player)
+                
+            if venceu_atual and venceu_oponente:
+                show_end_popup(current_player)
+                #running = False
+                matrix, current_player, mcts_root = reset_game() # -> para gerar dataset, comentar e descomentar o running
+                                                                 #para meter normal                   
+                turn = 0
+
+            elif venceu_atual:
+                show_end_popup(current_player)
+                #running = False
+                matrix, current_player, mcts_root = reset_game() # -> para gerar dataset, comentar e descomentar o running
+                turn = 0
+
+            elif venceu_oponente:
+                show_end_popup(3 - current_player)
+                #running = False
+                matrix, current_player, mcts_root = reset_game() # -> para gerar dataset, comentar e descomentar o running
+                turn = 0
+            else:
+                current_player = 3 - current_player           
 
 
-
-
-        # verificar vitória (igual ao teu código)
-        boolean_victory_1 = check_victory(matrix, 1)
-        boolean_victory_2 = check_victory(matrix, 2)
-
-        if boolean_victory_1 and boolean_victory_2:
-            show_end_popup(0)  # Tie
-            running = False
-        elif boolean_victory_1:
-            pygame.time.delay(2000)
-            show_end_popup(3)
-            pygame.time.delay(2000)
-            running = False
-        elif boolean_victory_2:
-            pygame.time.delay(2000)
-            show_end_popup(4)
-            pygame.time.delay(2000)
-            running = False
-
-        current_player = 1
-        ia_turn = False
-    '''
-    if modo_jogo == 3 and current_player == 2 and running:
-
-        movimento = MCTS.algoritmo_mcts(matrix, current_player, 5000)
-
-        if movimento[0] == "drop":
-            drop(matrix, current_player, movimento[1])
-        else:
-            pop(matrix, current_player, movimento[1])
-
-        # verificar vitória
-        boolean_victory_1 = check_victory(matrix, 1)
-        boolean_victory_2 = check_victory(matrix, 2)
-
-        if boolean_victory_1 and boolean_victory_2:
-            show_end_popup(0)  # Tie
-            running = False
-        elif boolean_victory_1:
-            show_end_popup(3)
-            running = False
-        elif boolean_victory_2:
-            show_end_popup(4)
-            running = False
-
-        current_player = 1
-    
-    if modo_jogo == 3 and current_player == 1 and running:
-
-        movimento = MCTS.algoritmo_mcts(matrix, current_player, 5000)
-
-        if movimento[0] == "drop":
-            drop(matrix, current_player, movimento[1])
-        else:
-            pop(matrix, current_player, movimento[1])
-
-        # verificar vitória
-        boolean_victory_1 = check_victory(matrix, 1)
-        boolean_victory_2 = check_victory(matrix, 2)
-
-        if boolean_victory_1 and boolean_victory_2:
-            print("Empate!")
-            running = False
-        elif boolean_victory_1:
-            print("IA 1 ganhou!")
-            running = False
-        elif boolean_victory_2:
-            print("IA 2 ganhou!")
+        if jogos > MAX:
             running = False
 
-        current_player = 2
-    '''
-    
-    screen.fill(black)
-    draw_board(matrix) 
 
+    # Only draw if game is still running and no popup is shown
+    if running:
+        screen.fill(black)
+        draw_board(matrix)
 
-    #destacar a coluna onde o rato está 
+        # Highlight column (only for human players in appropriate modes)
+        if modo_jogo !=3:
+            mouse_x = pygame.mouse.get_pos()[0]
+            mouse_y = pygame.mouse.get_pos()[1]
+            col = mouse_x // cell_size
+            highlight = pygame.Surface((cell_size, ROWS * cell_size), pygame.SRCALPHA)
+            highlight.fill((255, 255, 255, 40))
+            screen.blit(highlight, (col * cell_size, top_area))
 
-    mouse_x = pygame.mouse.get_pos()[0]
-    mouse_y = pygame.mouse.get_pos()[1]
+            # Draw current player piece on top (only for human players)
+            if mouse_y < top_area and not (modo_jogo == 2 and current_player == 2) and not (modo_jogo == 3):
+                color = player1 if current_player == 1 else player2
+                pygame.draw.circle(screen, color, (mouse_x, top_area//2), cell_size//2 - 10)
 
-    
-    col = mouse_x // cell_size
+        pygame.display.update()
 
-    highlight = pygame.Surface((cell_size, ROWS * cell_size), pygame.SRCALPHA)
-    highlight.fill((255, 255, 255, 40))
-
-    screen.blit(highlight, (col * cell_size, top_area))
-
-    #desenhar a peça do jogador atual na parte superior do tabuleiro
-
-    if mouse_y < top_area and not (modo_jogo == 2 and current_player == 2): #and not (modo_jogo == 3):
-
-        if current_player == 1:
-            color = player1
-        else:
-            color = player2
-
-        pygame.draw.circle(screen, color,(mouse_x, top_area//2), cell_size//2 - 10)
-
-
-
-
-    pygame.display.update()
 
 
 
 pygame.quit()
+
+print("\n--- STATS ---")
+print("Reuse OK:", reuse_ok)
+print("Reuse FAIL:", reuse_fail)
+
+with open("dataset.txt", "a") as f:
+    for estado, mov in dataset:
+        f.write(f"{estado}; {mov}\n")
