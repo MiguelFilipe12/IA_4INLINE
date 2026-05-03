@@ -120,6 +120,22 @@ def load_dt():
         print(f"[DT] Erro ao carregar dataset: {e}")
         return None
 
+def board_to_tuple(board):
+    return tuple(tuple(row) for row in board)
+
+def draw_draw_button(reason=""):
+    font = pygame.font.Font(None, 28)
+    btn_text = f"Declare Draw ({reason})" if reason else "Declare Draw"
+    text_surf = font.render(btn_text, True, (255, 255, 255))
+    btn_w = text_surf.get_width() + 20
+    btn_h = 34
+    btn_x = width - btn_w - 10
+    btn_y = (top_area - btn_h) // 2
+    btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+    pygame.draw.rect(screen, (180, 60, 60), btn_rect, border_radius=8)
+    screen.blit(text_surf, (btn_x + 10, btn_y + 7))
+    return btn_rect
+
 # Menu para escolher o modo de jogo
 def show_menu():
     menu_running = True
@@ -313,6 +329,8 @@ def show_ai_selection_menu(player_num):
     return choice  # "mcts" ou "dt"
 
 
+
+
 def show_end_popup(winner):
     """Display end game popup with winner information"""
     overlay = pygame.Surface((width, height))
@@ -375,6 +393,7 @@ if modo_jogo == 3:
 running        = True
 current_player = 1
 mcts_root      = None
+state_history = {}
 
 # Teste de melhoria
 reuse_ok   = 0
@@ -389,18 +408,37 @@ MAX   = 2
 # ─── LOOP PRINCIPAL ────────────────────────────────────────────────────────────
 while running:
 
+    current_state = board_to_tuple(matrix)
+    repetition_draw_available = state_history.get(current_state, 0) >= 3
+    full_board_draw_available = (board_is_full(matrix)
+                                and not check_victory(matrix, 1)
+                                and not check_victory(matrix, 2))
+
+    # AI vs AI: empate automático
+    if modo_jogo == 3 and (repetition_draw_available or full_board_draw_available):
+        show_end_popup(0)
+        matrix, current_player, mcts_root = reset_game()
+        state_history = {}
+        turn = 0
+
     for event in pygame.event.get():
-        
         if event.type == pygame.QUIT:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN and not (modo_jogo == 2 and current_player == 2) and not (modo_jogo == 3):
-            
             x = event.pos[0]
             y = event.pos[1]
-
             col = x // cell_size
             jogada_feita = False
+
+            if repetition_draw_available or full_board_draw_available:
+                reason = "R3" if repetition_draw_available else "R2"
+                btn_rect = draw_draw_button(reason)
+                if btn_rect.collidepoint(x, y):
+                    show_end_popup(0)
+                    running = False
+                    break
+
             if y < top_area:
                 if not col_isFull(matrix, col):
                     drop(matrix, current_player, col)
@@ -412,6 +450,9 @@ while running:
                     jogada_feita = True
 
             if jogada_feita:
+                # ← atualizar histórico após jogada humana
+                state_history[board_to_tuple(matrix)] = state_history.get(board_to_tuple(matrix), 0) + 1
+
                 if y < top_area:
                     novo_root = MCTS.atualizar_root(mcts_root, ("drop", col))
                 else:
@@ -429,7 +470,7 @@ while running:
 
                 venceu_atual    = check_victory(matrix, current_player)
                 venceu_oponente = check_victory(matrix, 3 - current_player)
-                
+
                 if venceu_atual and venceu_oponente:
                     show_end_popup(current_player)
                     running = False
@@ -441,23 +482,32 @@ while running:
                     running = False
                 else:
                     current_player = 3 - current_player
-        
+
     # ── AI moves ──
     if running:
 
         # ── Modo 2: Human vs AI ──
         if modo_jogo == 2 and current_player == 2:
-            movimento, mcts_root = MCTS.algoritmo_mcts(matrix, current_player, 5000, mcts_root)
-            if movimento[0] == "drop":
-                drop(matrix, current_player, movimento[1])
-            else:
-                pop(matrix, current_player, movimento[1])
 
-            novo_root = MCTS.atualizar_root(mcts_root, movimento)
-            if novo_root is None:
-                reuse_fail += 1
+            # Regra 2: tabuleiro cheio → empate automático
+            if full_board_draw_available or repetition_draw_available:
+                show_end_popup(0)
+                running = False
             else:
-                reuse_ok += 1
+                movimento, mcts_root = MCTS.algoritmo_mcts(matrix, current_player, 5000, mcts_root)
+                if movimento[0] == "drop":
+                    drop(matrix, current_player, movimento[1])
+                else:
+                    pop(matrix, current_player, movimento[1])
+
+                # ← atualizar histórico após jogada AI
+                state_history[board_to_tuple(matrix)] = state_history.get(board_to_tuple(matrix), 0) + 1
+
+                novo_root = MCTS.atualizar_root(mcts_root, movimento)
+                if novo_root is None:
+                    reuse_fail += 1
+                else:
+                    reuse_ok += 1
 
             screen.fill(black)
             draw_board(matrix)
@@ -465,7 +515,7 @@ while running:
 
             venceu_atual    = check_victory(matrix, current_player)
             venceu_oponente = check_victory(matrix, 3 - current_player)
-                
+
             if venceu_atual and venceu_oponente:
                 show_end_popup(current_player)
                 running = False
@@ -481,35 +531,33 @@ while running:
         # ── Modo 3: AI vs AI ──
         elif modo_jogo == 3:
 
-            pygame.time.wait(1000)  # pequena pausa para visualização
+            pygame.time.wait(1000)
             screen.fill(black)
             draw_board(matrix)
             pygame.display.update()
 
-            # Escolher a IA do jogador atual
             ai_atual = ai_p1 if current_player == 1 else ai_p2
-            print(f"Jogador atual: {current_player} | IA: {ai_atual}")
+
             if ai_atual == "mcts":
                 movimento, _ = MCTS.algoritmo_mcts(matrix, current_player, 5000)
             else:
-                # Decision Tree
                 movimento = dt_play(matrix, dt_tree, current_player)
-                # Validar jogada (pode ser inválida se a árvore sugerir coluna cheia)
                 from MCTS import get_legal_moves
                 if movimento not in get_legal_moves(matrix, current_player):
                     movimento, _ = MCTS.algoritmo_mcts(matrix, current_player, 5000)
 
-            # Guardar para dataset
             if turn > 3 and ai_p1 == "mcts" and ai_p2 == "mcts":
                 estado = [row[:] for row in matrix]
                 dataset.append((estado, movimento))
 
-            # Aplicar jogada
             if movimento[0] == "drop":
                 drop(matrix, current_player, movimento[1])
             else:
                 pop(matrix, current_player, movimento[1])
             turn += 1
+
+            # ← atualizar histórico após jogada AI vs AI
+            state_history[board_to_tuple(matrix)] = state_history.get(board_to_tuple(matrix), 0) + 1
 
             screen.fill(black)
             draw_board(matrix)
@@ -517,26 +565,26 @@ while running:
 
             venceu_atual    = check_victory(matrix, current_player)
             venceu_oponente = check_victory(matrix, 3 - current_player)
-                
+
             if venceu_atual and venceu_oponente:
                 show_end_popup(current_player)
                 matrix, current_player, mcts_root = reset_game()
-                turn = 0
+                state_history = {}; turn = 0
             elif venceu_atual:
                 show_end_popup(current_player)
                 matrix, current_player, mcts_root = reset_game()
-                turn = 0
+                state_history = {}; turn = 0
             elif venceu_oponente:
                 show_end_popup(3 - current_player)
                 matrix, current_player, mcts_root = reset_game()
-                turn = 0
+                state_history = {}; turn = 0
             else:
                 current_player = 3 - current_player
 
         if jogos > MAX:
             running = False
 
-    # Only draw if game is still running
+    # ── Render ──
     if running:
         screen.fill(black)
         draw_board(matrix)
@@ -552,6 +600,10 @@ while running:
             if mouse_y < top_area and not (modo_jogo == 2 and current_player == 2) and not (modo_jogo == 3):
                 color = player1 if current_player == 1 else player2
                 pygame.draw.circle(screen, color, (mouse_x, top_area//2), cell_size//2 - 10)
+
+            if repetition_draw_available or full_board_draw_available:
+                reason = "R3" if repetition_draw_available else "R2"
+                draw_draw_button(reason)
 
         pygame.display.update()
 
