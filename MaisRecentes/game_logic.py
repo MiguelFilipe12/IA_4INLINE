@@ -147,5 +147,8 @@ def get_row_before_drop(board, col):
             return r
     return None
 
+def board_is_full(board):
+    return all(board[0][c] != 0 for c in range(COLS))
+
 
 ################################# MAIN ###################################
