@@ -2,6 +2,7 @@ import pygame
 import MCTS
 from game_logic import *
 from ID3 import Node as ID3Node
+import csv
 
 dataset = []
 def reset_game():
@@ -77,7 +78,7 @@ def draw_board(board):
 
 
 # ─── FUNÇÃO AUXILIAR: Decision Tree play ───────────────────────────────────────
-def dt_play(board, tree):
+def dt_play(board, tree, player):
     """Converte o tabuleiro para o formato da árvore e devolve a jogada"""
     example = {}
     for r in range(6):
@@ -87,17 +88,15 @@ def dt_play(board, tree):
     label = tree.predict(example)  # ex: "drop_5" ou "pop_3"
     
     if label is None:
-        # fallback: jogada aleatória válida
         import random
         from MCTS import get_legal_moves
-        moves = get_legal_moves(board, 1)
+        moves = get_legal_moves(board, player)
         return random.choice(moves) if moves else ("drop", 3)
     
     action, col = label.split("_")
     return (action, int(col))
+    
 
-
-# ─── FUNÇÃO AUXILIAR: carregar a árvore de decisão ─────────────────────────────
 def load_dt():
     import csv
     try:
@@ -109,7 +108,7 @@ def load_dt():
                 for r in range(6):
                     for c in range(7):
                         example[f"cell_{r}_{c}"] = row[f"cell_{r}_{c}"]
-                example["label"] = f"{row['action']}_{row['col']}"
+                example["label"] = row["label"] 
                 examples.append(example)
 
         attributes = [f"cell_{r}_{c}" for r in range(6) for c in range(7)]
@@ -494,14 +493,14 @@ while running:
                 movimento, _ = MCTS.algoritmo_mcts(matrix, current_player, 5000)
             else:
                 # Decision Tree
-                movimento = dt_play(matrix, dt_tree)
+                movimento = dt_play(matrix, dt_tree, current_player)
                 # Validar jogada (pode ser inválida se a árvore sugerir coluna cheia)
                 from MCTS import get_legal_moves
                 if movimento not in get_legal_moves(matrix, current_player):
                     movimento, _ = MCTS.algoritmo_mcts(matrix, current_player, 5000)
 
             # Guardar para dataset
-            if turn > 3:
+            if turn > 3 and ai_p1 == "mcts" and ai_p2 == "mcts":
                 estado = [row[:] for row in matrix]
                 dataset.append((estado, movimento))
 
@@ -563,6 +562,21 @@ print("\n--- STATS ---")
 print("Reuse OK:", reuse_ok)
 print("Reuse FAIL:", reuse_fail)
 
-with open("dataset.txt", "a") as f:
+import os
+
+file_exists = os.path.exists("dataset.csv")
+
+with open("dataset.csv", "a", newline="") as f:
+    fieldnames = [f"cell_{r}_{c}" for r in range(6) for c in range(7)] + ["label"]
+    writer = csv.DictWriter(f, fieldnames=fieldnames)
+    
+    if not file_exists:
+        writer.writeheader()  # ← só escreve o cabeçalho se o ficheiro for novo
+    
     for estado, mov in dataset:
-        f.write(f"{estado}; {mov}\n")
+        row = {}
+        for r in range(6):
+            for c in range(7):
+                row[f"cell_{r}_{c}"] = str(estado[r][c])
+        row["label"] = f"{mov[0]}_{mov[1]}"
+        writer.writerow(row)
